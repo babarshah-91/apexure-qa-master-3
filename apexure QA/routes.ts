@@ -4,6 +4,18 @@ import { chromium } from "playwright";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
 import sharp from "sharp";
+import fs from "fs";
+
+function logServerError(error: any, contextStr: string) {
+  const stack = error instanceof Error ? error.stack : String(error);
+  const logMessage = `\n\n[${new Date().toISOString()}] ERROR in ${contextStr}:\n${stack}\n`;
+  try {
+    fs.appendFileSync('error_stack.txt', logMessage);
+  } catch (err) {
+    console.error('Failed to write to error_stack.txt:', err);
+  }
+  console.error(`[Server] ${contextStr} error:`, stack);
+}
 
 // --- COMPARISON HELPERS ---
 function rgbNumbersToHex(r: number, g: number, b: number) {
@@ -811,7 +823,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       });
 
     } catch (err: any) {
-      console.error('[Server] Comparison error:', err.message);
+      logServerError(err, '/api/compare-sentinel');
       res.status(500).json({ error: `Comparison failed: ${err.message}` });
     } finally {
       if (browser) await browser.close();
@@ -854,7 +866,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       const comparison = await storage.createComparison({ figmaUrl, liveUrl: webUrl, result: { sections, images: imagesSummary } });
       res.json(comparison);
     } catch (error: any) {
-      console.error('Comparison error:', error);
+      logServerError(error, '/api/compare');
       res.status(500).json({ message: error.message || 'An unexpected error occurred.' });
     }
   });
@@ -890,7 +902,7 @@ export async function registerRoutes(app: Express): Promise<void> {
         links: results,
       });
     } catch (error: any) {
-      console.error('Link check error:', error);
+      logServerError(error, '/api/check-links');
       res.status(500).json({ message: error.message || 'An unexpected error occurred.' });
     }
   });
@@ -1036,7 +1048,7 @@ export async function registerRoutes(app: Express): Promise<void> {
         await browser.close();
       }
     } catch (error: any) {
-      console.error('SEO audit error:', error);
+      logServerError(error, '/api/seo-audit');
       res.status(500).json({ message: error.message || 'An unexpected error occurred.' });
     }
   });
@@ -1204,7 +1216,7 @@ export async function registerRoutes(app: Express): Promise<void> {
         await browser.close();
       }
     } catch (error: any) {
-      console.error('Tech stack error:', error);
+      logServerError(error, '/api/tech-stack');
       res.status(500).json({ message: error.message || 'An unexpected error occurred.' });
     }
   });
@@ -1248,7 +1260,7 @@ export async function registerRoutes(app: Express): Promise<void> {
         issues,
       });
     } catch (error: any) {
-      console.error('Spell check error:', error);
+      logServerError(error, '/api/spell-check');
       res.status(500).json({ message: error.message || 'An unexpected error occurred.' });
     }
   });
@@ -1420,7 +1432,7 @@ export async function registerRoutes(app: Express): Promise<void> {
         frameName: frameName || null,
       });
     } catch (error: any) {
-      console.error('Screenshot diff error:', error);
+      logServerError(error, '/api/screenshot-diff');
       res.status(500).json({ message: error.message || 'An unexpected error occurred.' });
     }
   });
@@ -1592,8 +1604,8 @@ export async function registerRoutes(app: Express): Promise<void> {
         finalUrl: psi.lighthouseResult?.finalUrl ?? normalized,
       });
     } catch (error: any) {
-      console.error("PSI error:", error);
-      res.status(500).json({ message: error.message || "An unexpected error occurred." });
+      logServerError(error, '/api/pagespeed');
+      res.status(500).json({ message: error.message || 'An unexpected error occurred.' });
     }
   }); // closes /api/pagespeed try/finally
   // --- Image Optimizer Route ---
@@ -1613,8 +1625,34 @@ export async function registerRoutes(app: Express): Promise<void> {
       res.setHeader("Content-Type", `image/${format}`);
       res.send(optimizedBuffer);
     } catch (error: unknown) {
+      logServerError(error, '/api/pagespeed/optimize-image');
       const msg = error instanceof Error ? error.message : "Unknown error";
       res.status(500).json({ message: msg });
+    }
+  });
+
+  // --- Developer Error Logs endpoints ---
+  app.get("/api/server-errors", (req, res) => {
+    try {
+      if (fs.existsSync('error_stack.txt')) {
+        const content = fs.readFileSync('error_stack.txt', 'utf8');
+        res.type('text/plain').send(content);
+      } else {
+        res.type('text/plain').send('No errors logged yet.');
+      }
+    } catch (err: any) {
+      res.status(500).json({ error: `Failed to read logs: ${err.message}` });
+    }
+  });
+
+  app.post("/api/clear-server-errors", (req, res) => {
+    try {
+      if (fs.existsSync('error_stack.txt')) {
+        fs.writeFileSync('error_stack.txt', '');
+      }
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: `Failed to clear logs: ${err.message}` });
     }
   });
 
