@@ -254,9 +254,8 @@ async function fetchFigmaData(fileKey: string, nodeId: string, nodeIdRaw: string
 // FIX #1: merged fetchWebData + fetchWebImages to avoid spinning up two browsers for the same URL
 // FIX #2: switched from networkidle (can hang 60s on sites with polling/analytics) to domcontentloaded + short wait
 async function fetchWebDataAndImages(url: string) {
-  const browser = await chromium.launch({ headless: true });
+  const { browser, context } = await launchStealthBrowser();
   try {
-    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page = await context.newPage();
 
     // FIX #2: domcontentloaded is much faster; 1500ms wait lets JS hydrate
@@ -488,9 +487,8 @@ function compareTextNodes(figmaNodes: any[], webNodes: any[]) {
 
 // --- BROKEN LINK CHECKER ---
 async function extractLinks(url: string): Promise<any[]> {
-  const browser = await chromium.launch({ headless: true });
+  const { browser, context } = await launchStealthBrowser();
   try {
-    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page = await context.newPage();
     await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
     return await page.evaluate((baseUrl) => {
@@ -606,6 +604,29 @@ async function textGearsSpellCheck(text: string): Promise<any[]> {
   return allIssues;
 }
 
+async function launchStealthBrowser() {
+  const browser = await chromium.launch({
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-blink-features=AutomationControlled',
+    ],
+  });
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    locale: 'en-US',
+    timezoneId: 'America/New_York',
+  });
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', {
+      get: () => undefined,
+    });
+  });
+  return { browser, context };
+}
+
 export async function registerRoutes(app: Express): Promise<void> {
   // --- FIGMA BRIDGE STATE ---
   let latestFigmaData: any = null;
@@ -670,14 +691,9 @@ export async function registerRoutes(app: Express): Promise<void> {
       const textNodes = latestFigmaData.nodes.filter((n: any) => n.type === 'TEXT' && n.content);
       const mismatches: any[] = [];
 
-      browser = await chromium.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      });
-
-      const context = await browser.newContext({
-        viewport: { width: 1440, height: 900 },
-      });
+      const stealth = await launchStealthBrowser();
+      browser = stealth.browser;
+      const context = stealth.context;
 
       const page = await context.newPage();
       await page.goto(liveUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -887,9 +903,10 @@ export async function registerRoutes(app: Express): Promise<void> {
       const normalized = normalizeUrl(url);
       if (!normalized) return res.status(400).json({ message: "Invalid URL." });
 
-      const browser = await chromium.launch({ headless: true });
+      const stealth = await launchStealthBrowser();
+      const browser = stealth.browser;
       try {
-        const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+        const context = stealth.context;
         const page = await context.newPage();
         await page.goto(normalized, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await page.waitForTimeout(1500);
@@ -1032,9 +1049,10 @@ export async function registerRoutes(app: Express): Promise<void> {
       const normalized = normalizeUrl(url);
       if (!normalized) return res.status(400).json({ message: "Invalid URL." });
 
-      const browser = await chromium.launch({ headless: true });
+      const stealth = await launchStealthBrowser();
+      const browser = stealth.browser;
       try {
-        const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+        const context = stealth.context;
         const page = await context.newPage();
 
         const headers: Record<string, string> = {};
@@ -1200,10 +1218,11 @@ export async function registerRoutes(app: Express): Promise<void> {
       if (!normalized) return res.status(400).json({ message: "Invalid URL." });
 
       // FIX #8: use domcontentloaded — we only need body text, not full asset load
-      const browser = await chromium.launch({ headless: true });
+      const stealth = await launchStealthBrowser();
+      const browser = stealth.browser;
       let pageText = '';
       try {
-        const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+        const context = stealth.context;
         const page = await context.newPage();
         await page.goto(normalized, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await page.waitForTimeout(1000);
@@ -1273,12 +1292,10 @@ export async function registerRoutes(app: Express): Promise<void> {
       const VIEWPORT = { width: 1440, height: 900 };
       let liveScreenshotBuffer: Buffer;
       
-      const browser = await chromium.launch({ headless: true });
+      const stealth = await launchStealthBrowser();
+      const browser = stealth.browser;
       try {
-        const context = await browser.newContext({
-          viewport: VIEWPORT,
-          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120',
-        });
+        const context = stealth.context;
         const page = await context.newPage();
         await page.goto(webUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
