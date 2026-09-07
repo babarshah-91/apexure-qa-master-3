@@ -5,6 +5,11 @@ import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
 import sharp from "sharp";
 import fs from "fs";
+import multer from "multer";
+import { extractHtmlSpec } from "./html-source-adapter";
+
+const upload = multer({ dest: 'uploads/' });
+
 
 function logServerError(error: any, contextStr: string) {
   const stack = error instanceof Error ? error.stack : String(error);
@@ -870,6 +875,64 @@ export async function registerRoutes(app: Express): Promise<void> {
       res.status(500).json({ message: error.message || 'An unexpected error occurred.' });
     }
   });
+
+  app.post("/api/compare-html", upload.single("htmlFile"), async (req, res) => {
+    try {
+      const { liveUrl } = req.body;
+      const file = req.file;
+      if (!liveUrl) return res.status(400).json({ message: "liveUrl is required." });
+      if (!file) return res.status(400).json({ message: "htmlFile is required." });
+
+      const webUrl = normalizeUrl(liveUrl);
+      if (!webUrl) throw new Error("Invalid live URL.");
+
+      // Rename file to .html so Playwright loads it correctly as HTML
+      const tempPath = file.path;
+      const htmlPath = tempPath + ".html";
+      fs.renameSync(tempPath, htmlPath);
+
+      // Extract spec nodes from local html and scrape live page
+      const [figmaNodes, webResult] = await Promise.all([
+        extractHtmlSpec(htmlPath),
+        fetchWebDataAndImages(webUrl),
+      ]);
+
+      // Clean up the temp file
+      try {
+        fs.unlinkSync(htmlPath);
+      } catch (e) {
+        console.error("Failed to delete temp html file:", e);
+      }
+
+      const { textNodes: webNodes, images: webImages } = webResult;
+
+      if (!figmaNodes || figmaNodes.length === 0) throw new Error("No text nodes found in the uploaded HTML file.");
+      if (!webNodes || webNodes.length === 0) throw new Error("Could not extract text from the live URL.");
+
+      const sections = compareTextNodes(figmaNodes, webNodes);
+      
+      const images = compareImages([], webImages);
+      const imagesSummary = {
+        total: images.length,
+        present: images.filter(i => i.status === 'present').length,
+        missingOnWeb: images.filter(i => i.status === 'missing_on_web').length,
+        missingOnFigma: images.filter(i => i.status === 'missing_on_figma').length,
+        items: images,
+      };
+
+      const figmaUrlLabel = `Uploaded HTML: ${file.originalname}`;
+      const comparison = await storage.createComparison({ 
+        figmaUrl: figmaUrlLabel, 
+        liveUrl: webUrl, 
+        result: { sections, images: imagesSummary } 
+      });
+      res.json(comparison);
+    } catch (error: any) {
+      logServerError(error, '/api/compare-html');
+      res.status(500).json({ message: error.message || 'An unexpected error occurred.' });
+    }
+  });
+
 
   app.post("/api/check-links", async (req, res) => {
     try {

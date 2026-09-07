@@ -6,15 +6,18 @@ import { DashboardFooter } from "@/components/dashboard/DashboardFooter";
 import { PageSpeedTab } from "@/components/dashboard/PageSpeedTab";
 import QAPanel from "@/components/QAPanel";
 import AccessibilityPanel from "@/components/AccessibilityPanel";
+import ServerLogsPanel from "@/components/ServerLogsPanel";
 import { toast } from "sonner";
 import { useSEORecommendations } from "@/hooks/useSEORecommendations";
-type ActiveTab = "compare" | "screenshotdiff" | "spellcheck" | "seo" | "techstack" | "pagespeed" | "designsentinel" | "accessibility";
+type ActiveTab = "compare" | "screenshotdiff" | "spellcheck" | "seo" | "techstack" | "pagespeed" | "designsentinel" | "accessibility" | "serverlogs";
 const Index = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>("compare");
 
   // --- Compare state ---
+  const [sourceType, setSourceType] = useState<"figma" | "html">("figma");
   const [figmaUrl, setFigmaUrl] = useState("");
   const [figmaToken, setFigmaToken] = useState("");
+  const [htmlFile, setHtmlFile] = useState<File | null>(null);
   const [webUrl, setWebUrl] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [hasScanned, setHasScanned] = useState(false);
@@ -54,19 +57,37 @@ const Index = () => {
   const [psiResults, setPsiResults] = useState<any>(null);
 
   const handleRunScan = async () => {
-    if (!figmaUrl || !figmaToken || !webUrl) {
-      toast.error("Missing Info", { description: "Please fill in all fields first." });
-      return;
+    if (sourceType === "figma") {
+      if (!figmaUrl || !figmaToken || !webUrl) {
+        toast.error("Missing Info", { description: "Please fill in all fields first." });
+        return;
+      }
+    } else {
+      if (!htmlFile || !webUrl) {
+        toast.error("Missing Info", { description: "Please upload an HTML file and enter a target URL." });
+        return;
+      }
     }
     setIsScanning(true);
     setHasScanned(false);
     const loadingToast = toast.loading("Analyzing content and styles...");
     try {
-      const response = await fetch("/api/compare", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ figmaUrl, figmaToken, liveUrl: webUrl }),
-      });
+      let response;
+      if (sourceType === "figma") {
+        response = await fetch("/api/compare", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ figmaUrl, figmaToken, liveUrl: webUrl }),
+        });
+      } else {
+        const formData = new FormData();
+        formData.append("htmlFile", htmlFile!);
+        formData.append("liveUrl", webUrl);
+        response = await fetch("/api/compare-html", {
+          method: "POST",
+          body: formData,
+        });
+      }
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Scan failed.");
@@ -301,17 +322,27 @@ const Index = () => {
           >
             ♿ Accessibility
           </button>
+          <button
+            onClick={() => setActiveTab("serverlogs")}
+            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === "serverlogs" ? "bg-red-500/80 text-white shadow" : "text-muted-foreground hover:text-red-400"}`}
+          >
+            🔴 Server Logs
+          </button>
         </div>
 
         {/* ===== COMPARE TAB ===== */}
         {activeTab === "compare" && (
           <>
             <ScanInputs
+              sourceType={sourceType}
+              onSourceTypeChange={setSourceType}
               figmaUrl={figmaUrl}
               figmaToken={figmaToken}
+              htmlFile={htmlFile}
               webUrl={webUrl}
               onFigmaUrlChange={setFigmaUrl}
               onFigmaTokenChange={setFigmaToken}
+              onHtmlFileChange={setHtmlFile}
               onWebUrlChange={setWebUrl}
             />
             {isScanning && (
@@ -1131,6 +1162,11 @@ const Index = () => {
         {/* ===== ACCESSIBILITY TAB ===== */}
         {activeTab === "accessibility" && (
           <AccessibilityPanel />
+        )}
+
+        {/* ===== SERVER LOGS TAB ===== */}
+        {activeTab === "serverlogs" && (
+          <ServerLogsPanel />
         )}
 
       </main>

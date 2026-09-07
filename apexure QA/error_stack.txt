@@ -231,3 +231,57 @@ PayloadTooLargeError: request entity too large
     at Server.emit (node:events:508:28)
     at parserOnIncoming (node:_http_server:1210:12)
     at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+
+
+[2026-08-17T07:05:43.752Z] UNCAUGHT EXCEPTION:
+Error: listen EADDRINUSE: address already in use 0.0.0.0:5000
+    at Server.setupListenHandle [as _listen2] (node:net:1948:16)
+    at listenInCluster (node:net:2005:12)
+    at node:net:2214:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+
+
+[2026-08-17T07:08:03.409Z] ERROR in /api/compare-html:
+page.goto: net::ERR_INVALID_URL at file://uploads/a786e04443e31452fd975bba6dad25ee.html
+Call log:
+  - navigating to "file://uploads/a786e04443e31452fd975bba6dad25ee.html", waiting until "domcontentloaded"
+
+    at extractHtmlSpec (/Users/apexureindiapvtltd/Desktop/apexure-qa-master 3/apexure QA/html-source-adapter.js:56:14)
+    at async <anonymous> (/Users/apexureindiapvtltd/Desktop/apexure-qa-master 3/apexure QA/routes.ts:895:39)
+
+
+[2026-08-17T07:08:10.158Z] ERROR in /api/compare-html:
+page.goto: net::ERR_INVALID_URL at file://uploads/100e2343a4e2e9132e58de6152577eb4.html
+Call log:
+  - navigating to "file://uploads/100e2343a4e2e9132e58de6152577eb4.html", waiting until "domcontentloaded"
+
+    at extractHtmlSpec (/Users/apexureindiapvtltd/Desktop/apexure-qa-master 3/apexure QA/html-source-adapter.js:56:14)
+    at async <anonymous> (/Users/apexureindiapvtltd/Desktop/apexure-qa-master 3/apexure QA/routes.ts:895:39)
+
+
+[2026-09-07T05:27:11.007Z] ERROR in /api/compare-html:
+Error: No text nodes found in the uploaded HTML file.
+    at <anonymous> (/Users/apexureindiapvtltd/Desktop/apexure-qa-master 3/apexure QA/routes.ts:909:57)
+
+
+[2026-09-07T05:27:52.746Z] ERROR in /api/compare-html:
+Error: No text nodes found in the uploaded HTML file.
+    at <anonymous> (/Users/apexureindiapvtltd/Desktop/apexure-qa-master 3/apexure QA/routes.ts:909:57)
+
+
+[2026-09-07T05:33:01.456Z] ERROR in /api/compare-html:
+error: (ENOTFOUND) tenant/user postgres.xpbcolmpyzbymccxucuu not found
+    at /Users/apexureindiapvtltd/Desktop/apexure-qa-master 3/apexure QA/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async <anonymous> (/Users/apexureindiapvtltd/Desktop/apexure-qa-master 3/apexure QA/node_modules/src/node-postgres/session.ts:104:19)
+    at async DatabaseStorage.createComparison (/Users/apexureindiapvtltd/Desktop/apexure-qa-master 3/apexure QA/storage.ts:24:26)
+    at async <anonymous> (/Users/apexureindiapvtltd/Desktop/apexure-qa-master 3/apexure QA/routes.ts:924:26)
+
+
+[2026-09-07T05:33:16.990Z] ERROR in /api/compare-html:
+error: (ENOTFOUND) tenant/user postgres.xpbcolmpyzbymccxucuu not found
+    at /Users/apexureindiapvtltd/Desktop/apexure-qa-master 3/apexure QA/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async <anonymous> (/Users/apexureindiapvtltd/Desktop/apexure-qa-master 3/apexure QA/node_modules/src/node-postgres/session.ts:104:19)
+    at async DatabaseStorage.createComparison (/Users/apexureindiapvtltd/Desktop/apexure-qa-master 3/apexure QA/storage.ts:24:26)
+    at async <anonymous> (/Users/apexureindiapvtltd/Desktop/apexure-qa-master 3/apexure QA/routes.ts:924:26)
